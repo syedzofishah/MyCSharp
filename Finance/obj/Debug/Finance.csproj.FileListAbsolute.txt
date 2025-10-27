@@ -1,0 +1,7 @@
+C:\Users\syed zofi shah ali\source\repos\Finance\Finance\bin\Debug\Finance.exe.config
+C:\Users\syed zofi shah ali\source\repos\Finance\Finance\bin\Debug\Finance.exe
+C:\Users\syed zofi shah ali\source\repos\Finance\Finance\bin\Debug\Finance.pdb
+C:\Users\syed zofi shah ali\source\repos\Finance\Finance\obj\Debug\Finance.csproj.AssemblyReference.cache
+C:\Users\syed zofi shah ali\source\repos\Finance\Finance\obj\Debug\Finance.csproj.CoreCompileInputs.cache
+C:\Users\syed zofi shah ali\source\repos\Finance\Finance\obj\Debug\Finance.exe
+C:\Users\syed zofi shah ali\source\repos\Finance\Finance\obj\Debug\Finance.pdb

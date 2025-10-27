@@ -1,0 +1,346 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+using System.Text;
+
+namespace FinanceTrackerConsole
+{
+    [DataContract]
+    public class Expense
+    {
+        [DataMember]
+        public double Amount { get; set; }
+        [DataMember]
+        public string Category { get; set; }
+
+        // Parameterless constructor required for serializer
+        public Expense() { }
+
+        public Expense(double amount, string category)
+        {
+            Amount = amount;
+            Category = category;
+        }
+    }
+
+    [DataContract]
+    public class FinanceTracker
+    {
+        // Expose as properties for serialization
+        [DataMember]
+        public string[] Categories { get; set; }
+
+        [DataMember]
+        public double[] Budgets { get; set; }
+
+        [DataMember]
+        public List<Expense> Expenses { get; set; }
+
+        [DataMember]
+        public double TotalIncome { get; set; }
+
+        public FinanceTracker()
+        {
+            Categories = new[] { "Food", "Rent", "Entertainment", "Transportation", "Utilities" };
+            Budgets = new double[Categories.Length];
+            Expenses = new List<Expense>();
+            TotalIncome = 0;
+        }
+
+        public bool AddIncome(out string message, string input)
+        {
+            if (double.TryParse(input, out double income) && income >= 0)
+            {
+                TotalIncome += income;
+                message = $"Income of ${income:F2} added. Total: ${TotalIncome:F2}";
+                return true;
+            }
+            message = "Invalid input. Enter a positive number.";
+            return false;
+        }
+
+        public bool AddExpense(out string message, string categoryInput, string amountInput)
+        {
+            if (!int.TryParse(categoryInput, out int choice) || choice < 1 || choice > Categories.Length)
+            {
+                message = $"Invalid category. Choose 1-{Categories.Length}.";
+                return false;
+            }
+            if (!double.TryParse(amountInput, out double amount) || amount < 0)
+            {
+                message = "Invalid amount. Enter a positive number.";
+                return false;
+            }
+            Expenses.Add(new Expense(amount, Categories[choice - 1]));
+            message = $"Expense ${amount:F2} added to {Categories[choice - 1]}.";
+            return true;
+        }
+
+        public bool SetBudget(out string message, string categoryInput, string budgetInput)
+        {
+            if (!int.TryParse(categoryInput, out int choice) || choice < 1 || choice > Categories.Length)
+            {
+                message = $"Invalid category. Choose 1-{Categories.Length}.";
+                return false;
+            }
+            if (!double.TryParse(budgetInput, out double budget) || budget < 0)
+            {
+                message = "Invalid budget. Enter a positive number.";
+                return false;
+            }
+            Budgets[choice - 1] = budget;
+            message = $"Budget for {Categories[choice - 1]} set to ${budget:F2}.";
+            return true;
+        }
+
+        public string GetReport()
+        {
+            double totalExpenses = Expenses.Sum(e => e.Amount);
+            double totalBudget = Budgets.Sum();
+            StringBuilder report = new StringBuilder();
+            report.AppendLine("Financial Report:");
+            report.AppendLine($"Total Income: ${TotalIncome:F2}");
+            report.AppendLine();
+            for (int i = 0; i < Categories.Length; i++)
+            {
+                double categoryTotal = Expenses.Where(e => e.Category == Categories[i]).Sum(e => e.Amount);
+                report.AppendLine($"{Categories[i]}: ${categoryTotal:F2} (Budget: ${Budgets[i]:F2})");
+                if (Budgets[i] > 0)
+                    report.AppendLine(categoryTotal > Budgets[i] ? " Over budget!" : " Within budget.");
+                else
+                    report.AppendLine(" No budget set.");
+            }
+            report.AppendLine($"\nTotal Expenses: ${totalExpenses:F2}");
+            report.AppendLine($"Remaining Balance: ${(TotalIncome - totalExpenses):F2}");
+            report.Append(totalExpenses > totalBudget ? "Exceeded total budget!" : "Within total budget.");
+            return report.ToString();
+        }
+    }
+
+    [DataContract]
+    public class UserData
+    {
+        [DataMember]
+        public string Username { get; set; }
+        [DataMember]
+        public FinanceTracker Tracker { get; set; }
+
+        public UserData() { }
+
+        public UserData(string username)
+        {
+            Username = username;
+            Tracker = new FinanceTracker();
+        }
+    }
+
+    class Program
+    {
+        private static readonly string DataFilePath = "user_data.json";
+        private static readonly Dictionary<string, UserData> Users = new Dictionary<string, UserData>();
+
+        static void Main(string[] args)
+        {
+            LoadData();
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine("Personal Finance Tracker (Multi-User)");
+                Console.WriteLine("1. Login");
+                Console.WriteLine("2. Create New User");
+                Console.WriteLine("3. Exit");
+                Console.Write("Choose an option: ");
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1":
+                        Login();
+                        break;
+                    case "2":
+                        CreateUser();
+                        break;
+                    case "3":
+                        SaveData();
+                        return;
+                    default:
+                        Console.WriteLine("Invalid option. Press any key to continue...");
+                        Console.ReadKey();
+                        break;
+                }
+            }
+        }
+
+        static void Login()
+        {
+            Console.Write("Enter username: ");
+            string username = Console.ReadLine();
+            if (Users.ContainsKey(username))
+            {
+                ManageUser(username);
+            }
+            else
+            {
+                Console.WriteLine("User not found. Press any key to continue...");
+                Console.ReadKey();
+            }
+        }
+
+        static void CreateUser()
+        {
+            Console.Write("Enter new username: ");
+            string username = Console.ReadLine();
+            if (!Users.ContainsKey(username))
+            {
+                Users[username] = new UserData(username);
+                Console.WriteLine($"User {username} created. Press any key to continue...");
+                Console.ReadKey();
+            }
+            else
+            {
+                Console.WriteLine("Username already exists. Press any key to continue...");
+                Console.ReadKey();
+            }
+        }
+
+        static void ManageUser(string username)
+        {
+            UserData user = Users[username];
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine($"Welcome, {username}!");
+                Console.WriteLine("1. Add Income");
+                Console.WriteLine("2. Add Expense");
+                Console.WriteLine("3. Set Budget");
+                Console.WriteLine("4. View Report");
+                Console.WriteLine("5. Logout");
+                Console.Write("Choose an option: ");
+                string choice = Console.ReadLine();
+
+                switch (choice)
+                {
+                    case "1":
+                        Console.Write("Enter income amount: ");
+                        string incomeInput = Console.ReadLine();
+                        if (user.Tracker.AddIncome(out string incomeMsg, incomeInput))
+                            Console.WriteLine(incomeMsg);
+                        else
+                            Console.WriteLine(incomeMsg);
+                        break;
+                    case "2":
+                        Console.WriteLine("Choose category (1-5):");
+                        for (int i = 0; i < user.Tracker.Categories.Length; i++)
+                        {
+                            Console.WriteLine($"{i+1}. {user.Tracker.Categories[i]}");
+                        }
+                        Console.Write("Enter category number: ");
+                        string catInput = Console.ReadLine();
+                        int catIndex;
+                        if (!int.TryParse(catInput, out catIndex) || catIndex < 1 || catIndex > user.Tracker.Categories.Length)
+                        {
+                            Console.WriteLine("Invalid category. Press any key to continue...");
+                            Console.ReadKey();
+                            break;
+                        }
+                        Console.Write($"Enter amount for {user.Tracker.Categories[catIndex - 1]}: ");
+                        string amountInput = Console.ReadLine();
+                        if (user.Tracker.AddExpense(out string expMsg, catInput, amountInput))
+                            Console.WriteLine(expMsg);
+                        else
+                            Console.WriteLine(expMsg);
+                        break;
+                    case "3":
+                        Console.WriteLine("Choose category (1-5):");
+                        for (int i = 0; i < user.Tracker.Categories.Length; i++)
+                        {
+                            Console.WriteLine($"{i+1}. {user.Tracker.Categories[i]}");
+                        }
+                        Console.Write("Enter category number: ");
+                        string budgetCatInput = Console.ReadLine();
+                        int budgetCatIndex;
+                        if (!int.TryParse(budgetCatInput, out budgetCatIndex) || budgetCatIndex < 1 || budgetCatIndex > user.Tracker.Categories.Length)
+                        {
+                            Console.WriteLine("Invalid category. Press any key to continue...");
+                            Console.ReadKey();
+                            break;
+                        }
+                        Console.Write($"Enter budget for {user.Tracker.Categories[budgetCatIndex - 1]}: ");
+                        string budgetInput = Console.ReadLine();
+                        if (user.Tracker.SetBudget(out string budgetMsg, budgetCatInput, budgetInput))
+                            Console.WriteLine(budgetMsg);
+                        else
+                            Console.WriteLine(budgetMsg);
+                        break;
+                    case "4":
+                        Console.WriteLine(user.Tracker.GetReport());
+                        break;
+                    case "5":
+                        return;
+                    default:
+                        Console.WriteLine("Invalid option. Press any key to continue...");
+                        break;
+                }
+                Console.WriteLine("Press any key to continue...");
+                Console.ReadKey();
+            }
+        }
+
+        static void LoadData()
+        {
+            try
+            {
+                if (File.Exists(DataFilePath))
+                {
+                    string jsonData = File.ReadAllText(DataFilePath);
+                    var serializer = new DataContractJsonSerializer(typeof(Dictionary<string, UserData>));
+                    using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(jsonData)))
+                    {
+                        var loadedUsers = serializer.ReadObject(ms) as Dictionary<string, UserData>;
+                        if (loadedUsers != null)
+                        {
+                            Users.Clear();
+                            foreach (var user in loadedUsers)
+                            {
+                                Users[user.Key] = user.Value;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading data: {ex.Message}");
+                Console.ReadKey();
+            }
+        }
+
+        static void SaveData()
+        {
+            try
+            {
+                var serializer = new DataContractJsonSerializer(typeof(Dictionary<string, UserData>));
+                using (var ms = new MemoryStream())
+                {
+                    serializer.WriteObject(ms, Users);
+                    ms.Position = 0;
+                    using (var sr = new StreamReader(ms))
+                    {
+                        string jsonData = sr.ReadToEnd();
+                        File.WriteAllText(DataFilePath, jsonData, Encoding.UTF8);
+                    }
+                }
+                Console.WriteLine("Data saved successfully. Press any key to exit...");
+                Console.ReadKey();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving data: {ex.Message}");
+                Console.ReadKey();
+            }
+        }
+    }
+}
